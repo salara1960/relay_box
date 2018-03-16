@@ -26,7 +26,7 @@
 #define buf_size 512
 #define SPEED B115200
 #define max_cmd 3
-#define max_rel 4
+#define max_rel 8
 
 #define get_timer_sec(tm) (time(NULL) + tm)
 #define check_delay_sec(tm) (time(NULL) >= tm ? 1 : 0)
