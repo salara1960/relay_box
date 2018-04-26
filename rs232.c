@@ -24,8 +24,9 @@
 
 //-----------------------------------------------------------------------
 #define buf_size 512
+#define sdef 128
 #define SPEED B115200
-#define max_cmd 3
+#define max_cmd 4
 #define max_rel 8
 
 #define get_timer_sec(tm) (time(NULL) + tm)
@@ -35,7 +36,8 @@
 const char *cmd[] = {
     "SET_ON",
     "SET_OFF",
-    "GET_STAT"
+    "GET_STAT",
+    "SET_ALL"
 };
 //---------------------------------------------------------------------
 char *ThisTime()
@@ -48,11 +50,52 @@ char *arba = ctime(&ct);
     return (arba);
 }
 //-----------------------------------------------------------------------
+void parse_set_all(char *in, unsigned char *v_buf, unsigned char *t_buf)
+{
+//X1,Y1 X2,Y2 X3,Y3 X4,Y4 X5,Y5 X6,Y6 X7,Y7 X8,Y8
+unsigned char v, t;
+int k = 0, dl, it;
+char *us = NULL, *ue = NULL, *uks = NULL;
+char tmp[16] = {0};
+char cin[sdef] = {0};
+
+    if (!strlen(in)) return;
+
+    memcpy(cin, in, strlen(in));
+
+    uks = cin; if (*uks == ' ') uks++;
+    while (1) {
+	memset(tmp, 0, sizeof(tmp));
+	ue = strchr(uks, ' '); if (!ue) ue = strchr(uks, '\0');
+	if (ue) {
+	    dl = (ue - us) & 0x0f;
+	    if (dl > 0) {
+		memcpy(tmp, us, dl);
+		us = strchr(tmp, ',');
+		if (us) {
+		    it = atoi(us + 1);
+		    *us = '\0';
+		    if (strchr(tmp, 'X')) {
+			*(v_buf + k) = (unsigned char)255;
+		    } else {
+			t = it;
+			v = atoi(tmp);
+			*(v_buf + k) = v;
+			*(t_buf + k) = t;
+		    }
+		}
+	    }
+	}
+	uks = ue + 1;
+	k++; if (k == max_rel) break;
+    }
+}
+//-----------------------------------------------------------------------
 int main (int argc, char *argv[])
 {
 unsigned char to_dev[buf_size];
 char ack[128] = {0};
-char vrem[128] = {0};
+char vrem[sdef] = {0};
 char from_dev[buf_size];
 char dev_name[128] = {0};
 char chap[1024];
@@ -60,9 +103,9 @@ int fd, Vixod = 0, lenr = 0, lenr_tmp = 0, ukb = 0, i = 0, ik, rdy = 0, res, cmd
 struct timeval mytv;
 fd_set Fds;
 char *uks = NULL, *uke = NULL;
-unsigned char rl[max_rel] = {0}, stat = 0, bt;
+unsigned char rl[max_rel] = {0}, vbuf[max_rel] = {0}, stat = 0, bt;
 unsigned int tmr[max_rel] = {0};
-unsigned char tsm[max_rel] = {0};
+unsigned char tsm[max_rel] = {0}, tbuf[max_rel] = {0};
 struct termios oldtio, newtio;
 uint32_t seq_num_cmd = 0;
 time_t ct = time(NULL);
@@ -131,12 +174,17 @@ char *arba = ctime(&ct);
 			if (uke) {
 			    memset(vrem, 0, sizeof(vrem));
 			    memcpy(vrem, uks, uke - uks);
-			    rel = atoi(vrem);//relay
-			    //if (rel > max_rel) rel = 0;
-			    if (*uke == ' ') {
-				uks = uke + 1;
-				uke = strchr(uks, '\0');
-				if (uke) tm = atoi(uks);
+			    if (cmd_id == (max_cmd - 1)) {//"SET_ALL X1,Y1 X2,Y2 X3,Y3 X4,Y4 X5,Y5 X6,Y6 X7,Y7 X8,Y8"
+				rel = tm = -1;
+				memset(vbuf, 0, max_rel);
+				memset(tbuf, 0, max_rel);
+			    } else {//other command
+				rel = atoi(vrem);//relay
+				if (*uke == ' ') {
+				    uks = uke + 1;
+				    uke = strchr(uks, '\0');
+				    if (uke) tm = atoi(uks);
+				}
 			    }
 			}
 		    }
@@ -172,11 +220,41 @@ char *arba = ctime(&ct);
 				    res = sprintf(ack,"%s : %02X\r\n", from_dev, stat);
 				}
 			    break;
+			    case 3://SET_ALL
+				res = sprintf(ack,"%s : OK\r\n", from_dev);
+				memcpy(vbuf, rl, max_rel);
+				memcpy(tbuf, tsm, max_rel);
+				parse_set_all(vrem, vbuf, tbuf);
+				for (i = 0; i < max_rel; i++) {
+				    switch (vbuf[i]) {
+					case 0:
+					    rl[i] = vbuf[i];
+					    tmr[i] = 0;
+					break;
+					case 1:
+					    rl[i] = vbuf[i];
+					    tsm[i] = tbuf[i];
+					    if (tsm[i] > 0) tmr[i] = get_timer_sec(tsm[i]);
+						       else tmr[i] = 0;
+					break;
+				    }
+				}
+			    break;
 			}
 		    }
 		    memcpy(to_dev, ack, res);
 		    seq_num_cmd++;
-		    printf("[%u] cmd=%d rel=%d tm=%d\n", seq_num_cmd, cmd_id, rel, tm);
+		    if (cmd_id == max_rel - 1) {
+			memset(vrem, 0, sizeof(vrem));
+			for (i = 0; i < max_rel; i++) {
+			    if (rl[i] == 255)
+				sprintf(vrem+strlen(vrem)," X,%u", tsm[i]);
+			    else
+				sprintf(vrem+strlen(vrem)," %u,%u", rl[i], tsm[i]);
+			}
+			printf("[%u] cmd=%d (val,time) :%s\n", seq_num_cmd, cmd_id, vrem);
+		    } else printf("[%u] cmd=%d rel=%d tm=%d\n", seq_num_cmd, cmd_id, rel, tm);
+
 		    if (write(fd, to_dev, res) == res)
 			sprintf(chap,"to_device send %d bytes:%s", res, ack);
 		    else
