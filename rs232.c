@@ -23,8 +23,8 @@
 
 
 //-----------------------------------------------------------------------
-#define buf_size 512
-#define sdef 128
+#define buf_size 1024
+#define sdef 256
 #define SPEED B115200
 #define max_cmd 4
 #define max_rel 8
@@ -50,27 +50,31 @@ char *arba = ctime(&ct);
     return (arba);
 }
 //-----------------------------------------------------------------------
-void parse_set_all(char *in, unsigned char *v_buf, unsigned char *t_buf)
+int parse_set_all(char *in, unsigned char *v_buf, unsigned char *t_buf)
 {
 //X1,Y1 X2,Y2 X3,Y3 X4,Y4 X5,Y5 X6,Y6 X7,Y7 X8,Y8
+//'1,0 0,0 0,0 0,0 0,0 0,0 0,0 0,0'
 unsigned char v, t;
-int k = 0, dl, it;
-char *us = NULL, *ue = NULL, *uks = NULL;
+int k = 0, dl, it, ret = -1;
+char *us = NULL, *uke = NULL, *uks = NULL;
 char tmp[16] = {0};
 char cin[sdef] = {0};
 
-    if (!strlen(in)) return;
+
+    if (strlen(in) < max_rel*3) return ret;
 
     memcpy(cin, in, strlen(in));
 
-    uks = cin; if (*uks == ' ') uks++;
+    uks = cin;
+    if (*uks == ' ') uks++;
     while (1) {
 	memset(tmp, 0, sizeof(tmp));
-	ue = strchr(uks, ' '); if (!ue) ue = strchr(uks, '\0');
-	if (ue) {
-	    dl = (ue - us) & 0x0f;
+	uke = strchr(uks, ' ');
+	if (!uke) uke = strchr(uks, '\0');
+	if (uke) {
+	    dl = (uke - uks) & 0x0f;
 	    if (dl > 0) {
-		memcpy(tmp, us, dl);
+		memcpy(tmp, uks, dl);
 		us = strchr(tmp, ',');
 		if (us) {
 		    it = atoi(us + 1);
@@ -84,36 +88,42 @@ char cin[sdef] = {0};
 			*(t_buf + k) = t;
 		    }
 		}
-	    }
+	    } else break;
 	}
-	uks = ue + 1;
-	k++; if (k == max_rel) break;
+	k++;
+	if (k < max_rel) uks = uke + 1;
+	else {
+	    ret = 0;
+	    break;
+	}
     }
+
+    return ret;
 }
 //-----------------------------------------------------------------------
 int main (int argc, char *argv[])
 {
 unsigned char to_dev[buf_size];
-char ack[128] = {0};
+char ack[buf_size] = {0};
 char vrem[sdef] = {0};
 char from_dev[buf_size];
-char dev_name[128] = {0};
-char chap[1024];
+char dev_name[sdef] = {0};
+char chap[buf_size<<1];
 int fd, Vixod = 0, lenr = 0, lenr_tmp = 0, ukb = 0, i = 0, ik, rdy = 0, res, cmd_id = -1, rel, tm;
 struct timeval mytv;
 fd_set Fds;
 char *uks = NULL, *uke = NULL;
 unsigned char rl[max_rel] = {0}, vbuf[max_rel] = {0}, stat = 0, bt;
-unsigned int tmr[max_rel] = {0};
 unsigned char tsm[max_rel] = {0}, tbuf[max_rel] = {0};
+unsigned int tmr[max_rel] = {0};
 struct termios oldtio, newtio;
 uint32_t seq_num_cmd = 0;
-time_t ct = time(NULL);
-char *arba = ctime(&ct);
 
+    time_t ct = time(NULL);
+    char *arba = ctime(&ct);
     arba[strlen(arba)-1] = 0;
 
-    if (argc<2) {
+    if (argc < 2) {
         printf ("%s | ERROR: you must enter 1 param. For example: ./relay /dev/ttyUSB0\n\n", arba);
         return 1;
     }
@@ -124,8 +134,8 @@ char *arba = ctime(&ct);
 
     fd = open(dev_name, O_RDWR , 0664);
     if (fd < 0) {
-	printf("Can't open %s file (%d)\n", dev_name, fd);
-	return 1;
+        printf("Can't open %s file (%d)\n", dev_name, fd);
+        return 1;
     }
 
     tcgetattr(fd, &oldtio);
@@ -138,7 +148,7 @@ char *arba = ctime(&ct);
     while (!Vixod) {
 
 	FD_ZERO(&Fds); FD_SET(fd, &Fds);
-	mytv.tv_sec = 0; mytv.tv_usec = 25000;
+	mytv.tv_sec = 0; mytv.tv_usec = 50000;
 	if (select(fd + 1, &Fds, NULL, NULL, &mytv) > 0) {
 	    if (FD_ISSET(fd, &Fds)) {// event from my device
 		//----------- read data from device ------------------
@@ -166,19 +176,18 @@ char *arba = ctime(&ct);
 			    break;
 			}
 		    }
+		    memset(vrem, 0, sizeof(vrem));
 		    if (cmd_id != -1) {
 			uks = &from_dev[strlen(cmd[cmd_id])];
 			if (*uks == ' ') uks++;
 			uke = strchr(uks, ' ');
 			if (!uke) uke = strchr(uks, '\0');
 			if (uke) {
-			    memset(vrem, 0, sizeof(vrem));
-			    memcpy(vrem, uks, uke - uks);
 			    if (cmd_id == (max_cmd - 1)) {//"SET_ALL X1,Y1 X2,Y2 X3,Y3 X4,Y4 X5,Y5 X6,Y6 X7,Y7 X8,Y8"
+				strcpy(vrem, uks);
 				rel = tm = -1;
-				memset(vbuf, 0, max_rel);
-				memset(tbuf, 0, max_rel);
 			    } else {//other command
+				memcpy(vrem, uks, uke - uks);
 				rel = atoi(vrem);//relay
 				if (*uke == ' ') {
 				    uks = uke + 1;
@@ -221,24 +230,25 @@ char *arba = ctime(&ct);
 				}
 			    break;
 			    case 3://SET_ALL
-				res = sprintf(ack,"%s : OK\r\n", from_dev);
 				memcpy(vbuf, rl, max_rel);
 				memcpy(tbuf, tsm, max_rel);
-				parse_set_all(vrem, vbuf, tbuf);
-				for (i = 0; i < max_rel; i++) {
-				    switch (vbuf[i]) {
-					case 0:
-					    rl[i] = vbuf[i];
-					    tmr[i] = 0;
-					break;
-					case 1:
-					    rl[i] = vbuf[i];
-					    tsm[i] = tbuf[i];
-					    if (tsm[i] > 0) tmr[i] = get_timer_sec(tsm[i]);
-						       else tmr[i] = 0;
-					break;
+				if (!parse_set_all(vrem, vbuf, tbuf)) {
+				    for (i = 0; i < max_rel; i++) {
+					switch (vbuf[i]) {
+					    case 0:
+						rl[i] = vbuf[i];
+						tmr[i] = 0;
+					    break;
+					    case 1:
+						rl[i] = vbuf[i];
+						tsm[i] = tbuf[i];
+						if (tsm[i] > 0) tmr[i] = get_timer_sec(tsm[i]);
+						           else tmr[i] = 0;
+					    break;
+					}
 				    }
-				}
+				    res = sprintf(ack,"%s : OK\r\n", from_dev);
+				} else res = sprintf(ack,"%s : ERROR\r\n", from_dev);
 			    break;
 			}
 		    }
@@ -256,10 +266,11 @@ char *arba = ctime(&ct);
 		    } else printf("[%u] cmd=%d rel=%d tm=%d\n", seq_num_cmd, cmd_id, rel, tm);
 
 		    if (write(fd, to_dev, res) == res)
-			sprintf(chap,"to_device send %d bytes:%s", res, ack);
+			sprintf(chap,"data to device (%d): %s", res, ack);
 		    else
 			sprintf(chap,"Error sending to device %d bytes:%s", res, strerror(errno));
 		    printf("%s\n", chap);
+
 		    sprintf(chap,"relay status :");
 		    for (ik = max_rel - 1; ik >= 0; ik--) sprintf(chap+strlen(chap), " %u", rl[ik]);
 		    printf("%s\n\n", chap);
@@ -274,7 +285,7 @@ char *arba = ctime(&ct);
 		if (check_delay_sec(tmr[i])) {//if timeer is done -> relay OFF
 		    rl[i] = 0;
 		    tmr[i] = 0;
-		    sprintf(chap, "relay %d set to 0 by timer (%d sec.) => relay new status :", i+1, tsm[i]);
+		    sprintf(chap, "relay %d set to 0 by timer (%d sec.) => relay new status :", i + 1, tsm[i]);
 		    for (ik = max_rel - 1; ik >= 0; ik--) sprintf(chap+strlen(chap), " %u", rl[ik]);
 		    printf("%s\n\n", chap);
 		}
