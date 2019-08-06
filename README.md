@@ -1,8 +1,10 @@
 # relay_box
 
-emulator relay unit with control interface rs232
+Emulator relay unit with control interface RS232
 
-## Параметры порта rs232
+Project for IDE Code::Blocks - Linux, Windows(used minGW) compile support
+
+## Параметры порта rs232 (serial device name : /dev/ttyUSB0,... or COM1,...)
 
 ```
 115200 8N1

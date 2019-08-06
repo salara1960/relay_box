@@ -1,4 +1,4 @@
-NAME=relay
+NAME=relay_box
 
 CFLAG =-std=gnu99 -Os -Wall -pipe -D_GNU_SOURCE
 
