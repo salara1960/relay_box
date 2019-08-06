@@ -1,0 +1,87 @@
+# depslib dependency file v1.0
+1565085618 source:d:\fromgithub\projects\relay_box\rs232.c
+	<stdio.h>
+	<stdlib.h>
+	<sys/types.h>
+	<sys/stat.h>
+	<unistd.h>
+	<fcntl.h>
+	<time.h>
+	<string.h>
+	<errno.h>
+	<sys/time.h>
+	<ctype.h>
+	<math.h>
+	<process.h>
+	<windows.h>
+	"termiWin.h"
+	<sys/select.h>
+	<netinet/in.h>
+	<sys/un.h>
+	<sys/resource.h>
+	<sys/msg.h>
+	<netdb.h>
+	<arpa/inet.h>
+	<sys/socket.h>
+	<sys/ioctl.h>
+	<termios.h>
+
+1565080018 >
+
+1565085618 d:\fromgithub\projects\relay_box\termiwin.h
+	<windows.h>
+	<winsock2.h>
+
+1565079900 h>
+
+1565080910 source:d:\fromgithub\projects\relay_box\termiwin.c
+	"termiWin.h"
+	<fcntl.h>
+	<stdlib.h>
+
+1565021574 
+
+1565080018 source:/windows/fromGithub/Projects/relay_box/rs232.c
+	<stdio.h>
+	<stdlib.h>
+	<sys/types.h>
+	<sys/stat.h>
+	<unistd.h>
+	<fcntl.h>
+	<time.h>
+	<string.h>
+	<errno.h>
+	<sys/time.h>
+	<ctype.h>
+	<math.h>
+	<process.h>
+	<windows.h>
+	"termiWin.h"
+	<sys/select.h>
+	<netinet/in.h>
+	<sys/un.h>
+	<sys/resource.h>
+	<sys/msg.h>
+	<netdb.h>
+	<arpa/inet.h>
+	<sys/socket.h>
+	<sys/ioctl.h>
+	<termios.h>
+
+1565090015 /windows/fromGithub/Projects/relay_box/termiWin.h
+	<windows.h>
+	<winsock2.h>
+	<windows.h>
+	<winsock2.h>
+
+1565090015 source:/windows/fromGithub/Projects/relay_box/termiWin.c
+	"termiWin.h"
+	<fcntl.h>
+	<stdlib.h>
+	"termiWin.h"
+	<fcntl.h>
+	<stdlib.h>
+	"termiWin.h"
+	<fcntl.h>
+	<stdlib.h>
+
