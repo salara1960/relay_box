@@ -219,6 +219,7 @@ char *abra = ThisTime();
     tcgetattr(fd, &oldtio);
     memset(&newtio, 0, sizeof(newtio));
     memcpy(&newtio, &oldtio, sizeof(oldtio));
+    cfmakeraw(&newtio);//set RAW mode
     newtio.c_cflag = SPEED | CS8 | CLOCAL | CREAD;
     tcflush(fd, TCIFLUSH);
     tcsetattr(fd, TCSANOW, &newtio);
