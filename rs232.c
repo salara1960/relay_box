@@ -1,5 +1,6 @@
 
 #define LINUX
+#undef _WIN32
 
 
 #ifndef LINUX
@@ -38,7 +39,6 @@
 
 #define buf_size 512 //1024
 #define sdef 256
-#define SPEED B115200
 #define max_cmd 4
 #define max_rel 8
 
@@ -229,9 +229,9 @@ char *abra = ThisTime();
 
     while (!Vixod) {
 
-#ifndef _WIN32
+#ifdef LINUX
         FD_ZERO(&Fds); FD_SET(fd, &Fds);
-        mytv.tv_sec = 0; mytv.tv_usec = 25000;
+        mytv.tv_sec = 0; mytv.tv_usec = 10000;
         if (select(fd + 1, &Fds, NULL, NULL, &mytv) > 0) {
             if (FD_ISSET(fd, &Fds)) {// event from my device
 #else
@@ -248,12 +248,12 @@ char *abra = ThisTime();
                 } else if (lenr_tmp > 0) {
                     lenr += lenr_tmp;
                     ukb += lenr_tmp;
-                    if (lenr >= buf_size-1) rdy = 1;
+                    if (lenr >= buf_size - 1) rdy = 1;
                     else {
-                        uks = strchr(from_dev,'\r');
-                        if (!uks) uks = strchr(from_dev,'\n');
+                        uks = strchr(from_dev, '\n');
                         if (uks) {
                             *uks = '\0';
+                            if ((uks = strchr(from_dev, '\r')) != NULL) *uks = '\0';
                             lenr = strlen(from_dev);
                             rdy = 1;
                         }
@@ -362,24 +362,28 @@ char *abra = ThisTime();
                         printf("[%u] cmd=%d (val,time) :%s\n", seq_num_cmd, cmd_id, vrem);
                     } else printf("[%u] cmd=%d rel=%d tm=%d\n", seq_num_cmd, cmd_id, rel, tm);
 
-                    if (writes(to_dev, res) == res)
-                        sprintf(chap,"data to device (%d): %s", res, ack);
-                    else
-                        sprintf(chap,"Error sending to device %d bytes:%s", res, strerror(errno));
-                    printf("%s\n", chap);
+                    if (strlen(to_dev) > 0) {
+                        if (writes(to_dev, res) == res)
+                            sprintf(chap,"data to device (%d): %s", res, ack);
+                        else
+                            sprintf(chap,"Error sending to device %d bytes:%s", res, strerror(errno));
+                        printf("%s\n", chap);
 
-                    sprintf(chap, "relay status :");
-                    for (ik = max_rel - 1; ik >= 0; ik--) sprintf(chap+strlen(chap), " %u", rl[ik]);
-                    printf("%s\n\n", chap);
+                        sprintf(chap, "relay status :");
+                        for (ik = max_rel - 1; ik >= 0; ik--) sprintf(chap+strlen(chap), " %u", rl[ik]);
+                        printf("%s\n\n", chap);
+                    }
 
                     memset(from_dev, 0, buf_size);
                     ukb = 0;
                     lenr = lenr_tmp = 0;
                 }//if (rdy)
+
 #ifndef _WIN32
             }//if (FD_ISSET(fd, &Fds))
         }//if (select
 #endif // __WIN32
+
         for (i = 0; i < max_rel; i++) {//check timer[i] is done
             if (tmr[i] > 0) {//if timer was setup for relay[i]
                 if (check_delay_sec(tmr[i])) {//if timeer is done -> relay OFF
