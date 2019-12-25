@@ -151,7 +151,7 @@ char cin[sdef] = {0};
 //-----------------------------------------------------------------------
 int main (int argc, char *argv[])
 {
-char to_dev[buf_size];
+//char to_dev[buf_size];
 char ack[buf_size] = {0};
 char vrem[sdef] = {0};
 char from_dev[buf_size];
@@ -254,12 +254,13 @@ char *abra = ThisTime();
                         if (uks) {
                             *uks = '\0';
                             if ((uks = strchr(from_dev, '\r')) != NULL) *uks = '\0';
-                            lenr = strlen(from_dev);
+//                            lenr = strlen(from_dev);
                             rdy = 1;
                         }
                     }
                 }
                 if (rdy) {
+                    lenr = strlen(from_dev);
                     rdy = rel = 0;
                     cmd_id = -1;
                     tm = 0;
@@ -349,7 +350,7 @@ char *abra = ThisTime();
                             break;
                         }//switch(cmd)
                     }
-                    memcpy(to_dev, ack, res);
+                    //
                     seq_num_cmd++;
                     if (cmd_id == max_rel - 1) {
                         memset(vrem, 0, sizeof(vrem));
@@ -362,11 +363,14 @@ char *abra = ThisTime();
                         printf("[%u] cmd=%d (val,time) :%s\n", seq_num_cmd, cmd_id, vrem);
                     } else printf("[%u] cmd=%d rel=%d tm=%d\n", seq_num_cmd, cmd_id, rel, tm);
 
-                    if (strlen(to_dev) > 0) {
-                        if (writes(to_dev, res) == res)
-                            sprintf(chap,"data to device (%d): %s", res, ack);
-                        else
+                    if (res > 0) {
+                        //strcpy(to_dev, ack);
+                        if (writes(ack, res) == res) {
+                            sprintf(chap,"data to device (%d): %.*s |", res, res-2, ack);
+                            for (i = 0; i < res; i++) sprintf(chap+strlen(chap), " %02X", (unsigned char)ack[i]);
+                        } else {
                             sprintf(chap,"Error sending to device %d bytes:%s", res, strerror(errno));
+                        }
                         printf("%s\n", chap);
 
                         sprintf(chap, "relay status :");
@@ -374,7 +378,8 @@ char *abra = ThisTime();
                         printf("%s\n\n", chap);
                     }
 
-                    memset(from_dev, 0, buf_size);
+                    memset(ack, 0, buf_size);
+                    //memset(from_dev, 0, buf_size);
                     ukb = 0;
                     lenr = lenr_tmp = 0;
                 }//if (rdy)
